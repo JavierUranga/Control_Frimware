@@ -21,6 +21,7 @@
 #define M_SET_LED_CONFIG            (uint8_t)  23
 #define P_GET_SD_IFO                (uint8_t)  24
 #define P_GET_SD_IMAGE              (uint8_t)  25
+#define P_GET_LED_STATUS            (uint8_t)  26
 
 #define P_GET_CAMERA_CONFIG			(uint8_t)   50
 #define P_GET_ACQ_CONFIG            (uint8_t)   51
@@ -47,7 +48,7 @@
 #define P_GET_LAST_IMAGE            (uint8_t)  200
 #define M_GET_IMAGE                 (uint8_t)  201
 
-#define P_GET_LED_STATUS            (uint8_t)  203
+
 
 
 #endif
