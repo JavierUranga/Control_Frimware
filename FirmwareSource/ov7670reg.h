@@ -1,3 +1,6 @@
+#ifndef OV7670REG_H
+#define OV7670REG_H
+
 #include <WProgram.h>
 #include <Wire.h>
 
@@ -271,3 +274,5 @@
 #define REG_HAECC6      0xa9    /* Hist AEC/AGC control 6 */
 #define REG_HAECC7      0xaa    /* Hist AEC/AGC control 7 */
 #define REG_BD60MAX     0xab    /* 60hz banding step limit */
+
+#endif

@@ -13,6 +13,9 @@ void ov7670::init()
 {
   if (!initialized) 
   {
+    // Camera Clock
+    pinMode(CLOCK, OUTPUT);
+    PWM_20MHZ(CLOCK);
     initialized = true;
   }
 }
@@ -474,6 +477,36 @@ void ov7670::sccb_write(uint8_t address, uint8_t data)
  I2C.send(data); // data to write
  I2C.endTransmission();  
 }
+
+ void ov7670::takeImageYUV (uint8_t  *Imagen)
+ {
+   int Pixels = 0;
+   
+   noInterrupts();
+
+   Pixels = 0;
+   while (VSYNC==0){}
+   while (VSYNC!=0){}
+   // New Frame
+   while (VSYNC==0)
+   {    
+     while(VSYNC==0 && HREF==0){}   
+     // New Line;
+     while(VSYNC==0 && HREF!=0)
+     {     
+       // Byte 1
+       while (VSYNC==0 && PCLK==0 && HREF!=0){}
+       Imagen[Pixels] = (uint8_t)PORTE;
+       Pixels++;
+       while (VSYNC==0 && PCLK!=0 && HREF!=0){}
+       //BYTE 2
+       while (VSYNC==0 && PCLK==0 && HREF!=0){}
+       while (VSYNC==0 && PCLK!=0 && HREF!=0){}    
+     }            
+   }  
+   interrupts();
+ }
+ 
   
 
 

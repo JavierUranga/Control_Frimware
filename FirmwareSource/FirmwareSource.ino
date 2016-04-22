@@ -1,19 +1,15 @@
 #include "System_Defs.h"
-
+#include "Definitions.h"
+#include "pwm_led.h"
 #include "ov7670.h"
 #include <Wire.h>
-//Wifi 
+#include <SD.h>
 
-#include <MRF24G.h>                     // This is for the MRF24WGxx on a pmodWiFi or WiFiShield
-#include <DEIPcK.h>
-#include <DEWFcK.h>
-
-#define CLOCK 3
 //******************************************************************************************************************
 //                            SD-Settings
 //******************************************************************************************************************
  // include the SD library:
-#include <SD.h>
+
 File myFile;
 int NImag = 1;
 // set up variables using the SD utility library functions:
@@ -27,63 +23,6 @@ int count1 = 0;
 int task1;
 int task2;
 int Time_Interval = 10000;
-void AutomaticTask(int id, void * tptr) 
-{
-  Serial.println("HOLA");
-  takeImageYUV();
-  SaveImage();
-  count1++;
-}
-
-void AutomaticTask1(int id, void * tptr) 
-{
-  Serial.println("Automatic");
-}
-
-//////////////////////////////////////////////////////////////////////
-/************************************************************************/
-/*                    Required libraries, Do NOT comment out            */
-/************************************************************************/
-IPSTATUS status;
-
-const IPv4 ipServer = {192,168,173,10};
-const unsigned short portServer = DEIPcK::iPersonalPorts44 + 300;     // port 44300
-
-// Specify the SSID
-const char * szSsid = "Chipkit";
-
-// select 1 for the security you want, or none for no security
-#define USE_WPA2_PASSPHRASE
-const char * szPassPhrase = "123456789";
-#define WiFiConnectMacro() deIPcK.wfConnect(szSsid, szPassPhrase, &status)
-
-typedef enum
-{
-    NONE = 0,
-    CONNECT,
-    LISTEN,
-    ISLISTENING,
-    WAITISLISTENING,
-    AVAILABLECLIENT,
-    ACCEPTCLIENT,
-    READ,
-    WRITE,
-    CLOSE,
-    EXIT,
-    DONE
-} STATE;;
-
-STATE state=CONNECT;
-bool SendImage_WIFI = false;
-
-TCPServer tcpServer;
-#define cTcpClients 1
-TCPSocket rgTcpClient[cTcpClients];
-TCPSocket * ptcpClient = NULL;
-int count = 0;
-
-//
-
 
 
 //******************************************************************************************************************
@@ -96,53 +35,32 @@ TwoWire I2C;
 //******************************************************************************************************************
 // Camera Config
 ov7670  Camera(I2C);
+pwm_LED	LED_control();
 
 #define TRIG  46   //Photo button
 
 #define TRIG2 47  //SD save y LED dimming button
-//#define LED 10    //OC7
-
-#define VSYNC_PIN 5 //RD1
-#define HREF_PIN 6 //RD2
-#define PCLK_PIN 9 //RD3
 
 
-#define VSYNC (int)(PORTD & B00000010) //RD1 pin 5
-#define HREF  (int) (PORTD & B00000100) //RD1 pin 6
-#define PCLK (int) (PORTD & B00001000) //RD1 pin 9
 
 uint8_t  *Imagen; //VGA
-//uint8_t Imagen[480][640];  //VGA
-//uint8_t Imagen[480*640];  //VGA
-//uint8_t Imagen[240][320];  //QVGA
-//uint8_t Imagen[120][160];  //QQVGA
 
-String RESOLUTION;
-
-#define WIFI_LED   13
-
+byte RESOLUTION;
 
 void setup(){
   
    // Start serial for output
   Serial.begin(250000);
-  Imagen=(uint8_t *)malloc(480*640*sizeof(uint8_t));
-  RESOLUTION = "VGA";
-  
-  pinMode(WIFI_LED,OUTPUT);
-  digitalWrite(WIFI_LED,LOW);
-  
+  Imagen=(uint8_t *)malloc(VGA_LENGTH*sizeof(uint8_t));
+  RESOLUTION = VGA;
+
   // Trigger
   pinMode(TRIG, INPUT);
   pinMode(TRIG2, INPUT);
   
   //Dimming LED
-// pinMode(LED, OUTPUT); 
  
-  // Camera Clock
-  pinMode(CLOCK, OUTPUT);
-  PWM_20MHZ(CLOCK);
-  
+   
   // PIN configuration
   TRISE = B11111111;  //Set port E to input
   TRISD = B11111111; //Set port D to input
@@ -256,13 +174,13 @@ void loop (){
   if(digitalRead(TRIG)==HIGH)
   {
      Serial.println("Recibido Trigger");
-     takeImageYUV();
+     Camera.takeImageYUV(Imagen);
      delay(500);
   }
    DataRead = Serial_ReadLine();
    if (DataRead == "<CAPTURE_IMAGE_FIFO>")
    {
-    takeImageYUV();
+    Camera.takeImageYUV(Imagen);
     Serial.println("<CAPTURE_IMAGE_FIFO><ACK>");      
    }
    else if (DataRead == "<READ_IMAGE_FIFO>")
@@ -300,9 +218,8 @@ void loop (){
    {
     Serial.print("Camera VGA \r\n");
     free(Imagen);
-    Imagen=(uint8_t *)malloc(640*480*sizeof(uint8_t));
-    //uint8_t Imagen[307200];
-    RESOLUTION = "VGA";
+    Imagen=(uint8_t *)malloc(VGA_LENGTH*sizeof(uint8_t));
+    RESOLUTION = VGA;
     //Camera.Reset();
     Camera.InitDefaultReg();
     Camera.InitVGA();
@@ -311,8 +228,8 @@ void loop (){
    {
     Serial.print("Camera QVGA \r\n");
     free(Imagen);
-    Imagen=(uint8_t *)malloc(320*240*sizeof(uint8_t));
-    RESOLUTION = "QVGA";
+    Imagen=(uint8_t *)malloc(QVGA_LENGTH*sizeof(uint8_t));
+    RESOLUTION = QVGA;
     Camera.InitDefaultReg();
     Camera.InitQVGA();
    }
@@ -320,8 +237,8 @@ void loop (){
    {
     Serial.print("Camera QQVGA \r\n");
     free(Imagen);
-    Imagen=(uint8_t *)malloc(120*160*sizeof(uint8_t));
-    RESOLUTION = "QQVGA";
+    Imagen=(uint8_t *)malloc(QQVGA_LENGTH*sizeof(uint8_t));
+    RESOLUTION = QQVGA;
     Camera.InitDefaultReg();
     Camera.InitQQVGA();
    }
@@ -343,209 +260,18 @@ void loop (){
     delay(500);
    }
 }
- 
- 
-// void takeImage (void)
-// {
-//  int Lineas = 0;
-//  int Columnas = 0;
-//  int Pixels = 0;
-//  int PP[480];
-//  unsigned long t_start = 0;
-//  unsigned long t_end = 0;
-//  
-//    noInterrupts();
-//   Lineas = 0;
-//   Columnas = 0;
-//   Pixels=0 ;
-//   Serial.println("Recibido Trigger");
-//   //t_start = micros();
-//   while (VSYNC==0){}
-//   while (VSYNC!=0){}
-//   // New Frame
-//   t_start = micros();
-//   while (VSYNC==0)
-//   {    
-//     while(VSYNC==0 && HREF==0){}   
-//     // New Line;
-//     Lineas++;
-//     Columnas=0;
-//     while(VSYNC==0 && HREF!=0)
-//     {     
-//       while (VSYNC==0 && PCLK==0 && HREF!=0){}
-//       //Pixels++;
-//       Imagen[((Lineas-1)*640) + Columnas] = (uint8_t)PORTE;
-//       Columnas++;
-//       while (VSYNC==0 && PCLK!=0 && HREF!=0){}
-//     }         
-//     while(VSYNC==0 && HREF!=0){}  
-//     PP[Lineas-1]=Columnas;
-//   }  
-//   t_end = micros();
-//   
-//   interrupts();
-// }
-
-//  void takeImageYUV (void)
-// {
-//  int Lineas = 0;
-//  int Columnas = 0;
-//  int Pixels = 0;
-//  unsigned long t_start = 0;
-//  unsigned long t_end = 0;
-//   int PP[480];
-//   
-//    noInterrupts();
-//   Lineas = -1;
-//   Columnas = 0;
-//   Pixels=0 ;
-//   Serial.println("Recibido Trigger");
-//   //t_start = micros();
-//   while (VSYNC==0){}
-//   while (VSYNC!=0){}
-//   // New Frame
-//   t_start = micros();
-//   while (VSYNC==0)
-//   {    
-//     while(VSYNC==0 && HREF==0){}   
-//     // New Line;
-//     Lineas++;
-//     Columnas=0;
-//     while(VSYNC==0 && HREF!=0)
-//     {     
-//       // Byte 1
-//       while (VSYNC==0 && PCLK==0 && HREF!=0){}
-//       //Pixels++;
-//        Imagen[((Lineas-1)*640) + Columnas] = (uint8_t)PORTE;
-//       Columnas++;
-//       while (VSYNC==0 && PCLK!=0 && HREF!=0){}
-//       //BYTE 2
-//       while (VSYNC==0 && PCLK==0 && HREF!=0){}
-//       while (VSYNC==0 && PCLK!=0 && HREF!=0){}
-//       
-//       
-//      
-//     }         
-//     //while(VSYNC==0 && HREF!=0){}  
-//    PP[Lineas-1]=Columnas;
-//    
-//   }  
-//   t_end = micros();
-////   for (int ii=0; ii<480;ii++)
-////   {
-////     Serial.println(PP[ii]);
-////   }
-//   
-//   interrupts();
-// }
-  void takeImageYUV (void)
- {
-   int Pixels = 0;
-   
-   noInterrupts();
-
-   Pixels = 0;
-   while (VSYNC==0){}
-   while (VSYNC!=0){}
-   // New Frame
-   while (VSYNC==0)
-   {    
-     while(VSYNC==0 && HREF==0){}   
-     // New Line;
-     while(VSYNC==0 && HREF!=0)
-     {     
-       // Byte 1
-       while (VSYNC==0 && PCLK==0 && HREF!=0){}
-       Imagen[Pixels] = (uint8_t)PORTE;
-       Pixels++;
-       while (VSYNC==0 && PCLK!=0 && HREF!=0){}
-       //BYTE 2
-       while (VSYNC==0 && PCLK==0 && HREF!=0){}
-       while (VSYNC==0 && PCLK!=0 && HREF!=0){}    
-     }            
-   }  
-   interrupts();
-//   Serial.print("Numero Pixels: ");
-//   Serial.println(Pixels);
- }
- 
-// void Image_RAM_to_Serial()
-//{
-
-  
-//   Serial.write(*Imagen, 640*480);
-//   Serial.flush();
-  // for IMAGE_COLUMNS*IMAGE_FILES*2 times, pulse the RCLK and read the digital pins for image data
-  //VGA
-//  for (int jj=0; jj<480; jj++) 
-//  {
-//   Serial.write(Imagen[jj], 640);
-//   Serial.flush();
-//   delay(1);
-//  }
-  //QVGA
-//  for (int jj=0; jj<240; jj++)
-//  {
-//   Serial.write(Imagen[jj], 320);
-//   Serial.flush();
-//   delay(1);
-//  }
-  //QQVGA
-//  for (int jj=0; jj<120; jj++)
-//  {
-//   Serial.write(Imagen[jj], 160);
-//   Serial.flush();
-//   delay(1);
-//  }
-//}
 
 
  void Image_RAM_to_Serial()
 {
-
-  
-//   Serial.write(*Imagen, 640*480);
-//   Serial.flush();
-//   for IMAGE_COLUMNS*IMAGE_FILES*2 times, pulse the RCLK and read the digital pins for image data
  //VGA
- if (RESOLUTION == "VGA")
- {
- Serial.write(&Imagen[0], 307200);
-//  for (int jj=0; jj<240; jj++) 
-//  {
-//   Serial.write(&Imagen[jj*1280], 1280);
-//   Serial.flush();
-//   delay(1);
-//  }
- } 
-  //QVGA
-  else if (RESOLUTION == "QVGA")
-  {
-  Serial.write(&Imagen[0], 76800);
-  
-//   for (int jj=0; jj<240; jj++)
-//   {
-//    Serial.write(&Imagen[jj*320], 320);
-//    Serial.flush();
-//    delay(1);
-//   }
-  }
-  //QQVGA
-  else if (RESOLUTION == "QQVGA")
-  {
-  Serial.write(&Imagen[0], 19200);
-  
-//   for (int jj=0; jj<120; jj++)
-//   {
-//    Serial.write(&Imagen[jj*160], 160);
-//    Serial.flush();
-//    delay(1);
-//   }
-  }
+ if (RESOLUTION == VGA)         { Serial.write(&Imagen[0], 307200); } 
+ //QVGA
+ else if (RESOLUTION == QVGA)   { Serial.write(&Imagen[0], 76800); }
+ //QQVGA
+ else if (RESOLUTION == QQVGA)  { Serial.write(&Imagen[0], 19200); }
 }
 
- 
- 
  String Serial_ReadLine ()
 {
   String DataRead = "";
@@ -650,25 +376,25 @@ void SaveImage()
   if (myFile)
   {
     Serial.println("Se guarda");
-    if (RESOLUTION == "VGA")
+    if (RESOLUTION == VGA)
     {
-     for (int jj=0; jj<480; jj++)
+     for (int jj=0; jj<VGA_HEIGHT; jj++)
      {
-       myFile.write(&Imagen[jj*640],640);
+       myFile.write(&Imagen[jj*VGA_WIDTH],VGA_WIDTH);
      }
     }
-    else if (RESOLUTION == "QVGA")
+    else if (RESOLUTION == QVGA)
     {
-     for (int jj=0; jj<240; jj++)
+     for (int jj=0; jj<QVGA_HEIGHT; jj++)
      {
-       myFile.write(&Imagen[jj*320],320);
+       myFile.write(&Imagen[jj*QVGA_WIDTH],QVGA_WIDTH);
      }
     }
-    else if (RESOLUTION == "QQVGA")
+    else if (RESOLUTION == QQVGA)
     {
-     for (int jj=0; jj<120; jj++)
+     for (int jj=0; jj<QVGA_HEIGHT; jj++)
      {
-       myFile.write(&Imagen[jj*160],160);
+       myFile.write(&Imagen[jj*QQVGA_WIDTH],QQVGA_WIDTH);
      }
     }
   }
@@ -794,165 +520,6 @@ void SaveImage()
 //}
 
  
- void GestionarWIFI()
- {
-  
-  switch(state)
-    {
-
-        case CONNECT:
-            if(WiFiConnectMacro())
-            {
-              Serial.println("Connection Created");
-                deIPcK.begin(ipServer);
-                state = LISTEN;
-            }
-            else if(IsIPStatusAnError(status))
-            {
-              ptcpClient->close();
-              tcpServer.addSocket(*ptcpClient);
-              tcpServer.close();
-              //state = CLOSE;
-            }
-            break;
-
-    // say to listen on the port
-    case LISTEN:
-        if(deIPcK.tcpStartListening(portServer, tcpServer))
-        {
-            for(int i = 0; i < cTcpClients; i++)
-            {
-                tcpServer.addSocket(rgTcpClient[i]);
-            }
-        }
-        state = ISLISTENING;
-        break;
-
-    case ISLISTENING:
-        count = tcpServer.isListening();
-
-        if(count > 0)
-        {
-            state = AVAILABLECLIENT;
-        }
-        else
-        {
-            state = WAITISLISTENING;
-        }
-        break;
-
-    case WAITISLISTENING:
-        if(tcpServer.isListening() > 0)
-        {
-            state = ISLISTENING;
-        }
-        break;
-
-    // wait for a connection
-    case AVAILABLECLIENT:
-        if((count = tcpServer.availableClients()) > 0)
-        {
-            state = ACCEPTCLIENT;
-        }
-        break;
-
-    // accept the connection
-    case ACCEPTCLIENT:
-        
-        // accept the client
-        if((ptcpClient = tcpServer.acceptClient()) != NULL && ptcpClient->isConnected())
-        {
-            state = WRITE;
-        }
-
-        // this probably won't happen unless the connection is dropped
-        // if it is, just release our socket and go back to listening
-        else
-        {
-            state = CLOSE;
-        }
-        break;
-
-    // wait fot the read, but if too much time elapses (5 seconds)
-    // we will just close the tcpClient and go back to listening
-
-    // echo back the string
-    case WRITE:
-   
-        if(ptcpClient->isConnected()&& SendImage_WIFI)
-        {   
-          
-          int result=0;
-          int ii =0;
-
-          digitalWrite(WIFI_LED,HIGH);
-          
-          if (RESOLUTION == "VGA")
-          {
-          
-           while (ii<1200)
-           {
-              result = ptcpClient->writeStream(&Imagen[ii*256],256);
-              //if (result > 0 ) ii++;
-              ii++;
-              delay(1);
-              DEIPcK::periodicTasks();            
-           }
-          }
-          else if (RESOLUTION == "QVGA")
-          {
-          
-           while (ii<300)
-           {
-              result = ptcpClient->writeStream(&Imagen[ii*256],256);
-              //if (result > 0 ) ii++;
-              ii++;
-              delay(1);
-              DEIPcK::periodicTasks();            
-           }
-          }
-          
-          else if (RESOLUTION == "QQVGA")
-          {
-          
-           while (ii<75)
-           {
-              result = ptcpClient->writeStream(&Imagen[ii*256],256);
-              //if (result > 0 ) ii++;
-              ii++;
-              delay(1);
-              DEIPcK::periodicTasks();            
-           }
-          }
-          
-
-          digitalWrite(WIFI_LED,LOW);
-          SendImage_WIFI = false;   
-        }
-        break;
-        
-    // close our tcpClient and go back to listening
-    case CLOSE:
-        ptcpClient->close();
-        tcpServer.addSocket(*ptcpClient);
-        state = ISLISTENING;
-        break;
-
-    // something bad happen, just exit out of the program
-    case EXIT:
-        tcpServer.close();
-        state = DONE;
-        break;
-
-    // do nothing in the loop
-    case DONE:
-    default:
-    break;
-    }
-
-    // every pass through loop(), keep the stack alive
-   DEIPcK::periodicTasks();
- }
 
 void Automatic_Mode()
 {
@@ -972,22 +539,25 @@ void Automatic_Mode()
   Serial.println (Num_Imagenes);
   for (int ii=0; ii<Num_Imagenes; ii++)
   {
-   takeImageYUV();
+    Camera.takeImageYUV(Imagen);
    SaveImage();
    delay((Time_Between-3)*1000);
   }
   Serial.println("Imagenes tomadas");
 }
 
-// if (digitalRead(TRIG2) == HIGH)
-// {
-//   for (int dim=0; dim<=255; dim=dim+5)
-//   {
-//     analogWrite(LED, dim);
-//     delay(20);
-//   }
-//   delay(1000);
-//   analogWrite(LED,0); //digitalWrite (LED, LOW)
-// }
-//  
+
+void AutomaticTask(int id, void * tptr) 
+{
+  Serial.println("HOLA");
+  Camera.takeImageYUV(Imagen);
+  SaveImage();
+  count1++;
+}
+
+void AutomaticTask1(int id, void * tptr) 
+{
+  Serial.println("Automatic");
+}
+
 
