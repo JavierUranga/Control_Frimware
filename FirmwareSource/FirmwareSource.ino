@@ -78,7 +78,7 @@ void setup(){
   Camera.PrintRegister();
 
 
-  SD_control.PrintRegisterSD();
+  Serial.print(SD_control.PrintRegisterSD());
 }
 
 

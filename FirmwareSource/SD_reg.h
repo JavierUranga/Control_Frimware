@@ -12,7 +12,7 @@ class SD_reg
 {
 public:  
   SD_reg();
-  void PrintRegisterSD(void);
+  char* PrintRegisterSD(void);
   void Save(uint8_t  *Imagen, byte RESOLUTION); //Habría que enviar también el path
   void CreateFolder (String path);
   String GetpathFolder (void);
