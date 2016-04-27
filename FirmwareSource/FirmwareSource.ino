@@ -2,27 +2,13 @@
 #include "Definitions.h"
 #include "pwm_led.h"
 #include "ov7670.h"
+#include "SD_reg.h"
 #include <Wire.h>
-#include <SD.h>
-
-//******************************************************************************************************************
-//                            SD-Settings
-//******************************************************************************************************************
- // include the SD library:
-
-File myFile;
-int NImag = 1;
-// set up variables using the SD utility library functions:
-Sd2Card card;
-SdVolume volume;
-SdFile root;
-const int chipSelect_SD = 52;
 
 ///////////////////////////////////////////////////////////////////////
 int count1 = 0;
 int task1;
-int task2;
-int Time_Interval = 10000;
+int Time_Interval = 4000;
 
 
 //******************************************************************************************************************
@@ -36,21 +22,22 @@ TwoWire I2C;
 // Camera Config
 ov7670  Camera(I2C);
 pwm_LED	LED_control();
+SD_reg  SD_control();  // Quitar los (), probablemente en el pwm_Led haya que hacer los mismo.
 
 #define TRIG  46   //Photo button
 
 #define TRIG2 47  //SD save y LED dimming button
-
-
-
 uint8_t  *Imagen; //VGA
-
 byte RESOLUTION;
+String path = "yep/";
+
+
 
 void setup(){
   
    // Start serial for output
   Serial.begin(250000);
+  Serial.println("Empieza Setup");
   Imagen=(uint8_t *)malloc(VGA_LENGTH*sizeof(uint8_t));
   RESOLUTION = VGA;
 
@@ -74,7 +61,7 @@ void setup(){
   Serial.println("CAMERA CONFIG PRE");
   Camera.PrintRegister();
  
-  Camera.Reset();
+  //Camera.Reset();
    
   Camera.InitDefaultReg();
 
@@ -84,92 +71,20 @@ void setup(){
   
   Camera.InitVGA();
   Serial.print("Camera VGA \r\n");
-  
-//  Camera.InitQVGA();
-//  Serial.print("Camera QVGA \r\n");
-  
-//   Camera.InitQQVGA();
-//  Serial.print("Camera QQVGA \r\n");
+
                   
           
   Serial.println("CAMERA CONFIG POST");
   Camera.PrintRegister();
 
-//SD
-  pinMode(chipSelect_SD, OUTPUT);
-  digitalWrite(chipSelect_SD, HIGH);
-//  // we'll use the initialization code from the utility libraries
-//  // since we're just testing if the card is working!
-//    Serial.print("\nInitializing SD card...");
-  SD.begin(chipSelect_SD);
-//  if (!card.init(SPI_HALF_SPEED, chipSelect_SD)) {
-//    Serial.println("initialization failed. Things to check:");
-//    Serial.println("* is a card is inserted?");
-//    Serial.println("* Is your wiring correct?");
-//    Serial.println("* did you change the chipSelect pin to match your shield or module?");
-//    return;
-//  } else {
-//   Serial.println("Wiring is correct and a card is present."); 
-//  }
-//
-//  // print the type of card
-//  Serial.print("\nCard type: ");
-//  switch(card.type()) {
-//    case SD_CARD_TYPE_SD1:
-//      Serial.println("SD1");
-//      break;
-//    case SD_CARD_TYPE_SD2:
-//      Serial.println("SD2");
-//      break;
-//    case SD_CARD_TYPE_SDHC:
-//      Serial.println("SDHC");
-//      break;
-//    default:
-//      Serial.println("Unknown");
-//  }
-//
-//  // Now we will try to open the 'volume'/'partition' - it should be FAT16 or FAT32
-//  if (!volume.init(card)) {
-//    Serial.println("Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card");
-//    return;
-//  }
-//
-//
-//  // print the type and size of the first FAT-type volume
-//  double volumesize;
-//  Serial.print("\nVolume type is FAT");
-//  Serial.println(volume.fatType(), DEC);
-//  Serial.println();
-//  
-//  volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
-//  volumesize *= volume.clusterCount();       // we'll have a lot of clusters
-//  volumesize *= 512;                            // SD card blocks are always 512 bytes
-//  Serial.print("Volume size (bytes): ");
-//  Serial.println(volumesize);
-//  Serial.print("Volume size (Kbytes): ");
-//  volumesize /= 1024;
-//  Serial.println(volumesize);
-//  Serial.print("Volume size (Mbytes): ");
-//  volumesize /= 1024;
-//  Serial.println(volumesize);
-//
-//  
-//  Serial.println("\nFiles found on the card (name, date and size in bytes): ");
-//  root.openRoot(volume);
-//  
-//  // list all files in the card with date and size
-//  root.ls(LS_R | LS_DATE | LS_SIZE);
+
+  SD_control.PrintRegisterSD();
 }
 
 
 void loop (){
   
   String DataRead = "";
- // GestionarWIFI();
-//  if (SendImage_WIFI)
-//    {
-//      GestionarWIFI();
-//    }
 
   if(digitalRead(TRIG)==HIGH)
   {
@@ -197,17 +112,18 @@ void loop (){
    //Guardar SD
    else if (DataRead == "<SAVE_IMAGE_SD>")
    {
-    Serial.println("Se hace la función");
-    SaveImage();
+    Serial.println("Se hace la funcion");
+    SD_control.Save(Imagen, RESOLUTION);
+ //   SaveImage();
    }
    else if (DataRead == "<AUTOMATIC_MODE>")
    {
     destroyTask(task1);
-    destroyTask(task2);
+    //destroyTask(task2);
     count1 = 0;
     task1 = createTask(AutomaticTask, Time_Interval, TASK_ENABLE, NULL);
 
-    task2 = createTask(AutomaticTask1, 300, 20, NULL);
+    //task2 = createTask(AutomaticTask1, 300, 20, NULL);
 
     //task1 = createTask(AutomaticTask, Time_Interval, TASK_ENABLE, NULL);
 
@@ -242,9 +158,29 @@ void loop (){
     Camera.InitDefaultReg();
     Camera.InitQQVGA();
    }
+
+   else if (DataRead == "P_GET_SD_IFO")
+   {
+    SD_control.PrintRegisterSD();
+   }
+   
+   else if (DataRead == "CreateFolder")
+   {
+    SD_control.CreateFolder(path);
+   }
+
+   else if (DataRead == "pathfolder")
+   {
+    String pathfolder;
+    
+    pathfolder = SD_control.GetpathFolder();
+    Serial.print("Path: ");
+    Serial.println(pathfolder);
+   }
+
    delay(50);
 
-   if (count1 >= 5)
+   if (count1 >= 30)
    {
     destroyTask(task1);
    }
@@ -255,8 +191,7 @@ void loop (){
    if(digitalRead(TRIG2)==HIGH)
    {
     Serial.println("Se hace la función");
-    SaveImage();
-   // saveImage();
+ //   SaveImage();
     delay(500);
    }
 }
@@ -359,76 +294,53 @@ int Serial_ReadNum ()
    return character;
 }
 
-void SaveImage()
-{
-  String NomImag = "Photo_";
-  NomImag.concat(NImag);
-  //NomImag.concat(".jpg");    // Para guardarla como jpg hay que ponerle un header.
-  char NombreImagen[NomImag.length()+1];
-  NomImag.toCharArray(NombreImagen, sizeof(NombreImagen));
-  Serial.println(NombreImagen);
-  if (SD.exists(NombreImagen)) 
-  {
-    Serial.println("Borrando archivo con mismo nombre");
-    SD.remove(NombreImagen);
-  }
-  myFile = SD.open(NombreImagen, FILE_WRITE);
-  if (myFile)
-  {
-    Serial.println("Se guarda");
-    if (RESOLUTION == VGA)
-    {
-     for (int jj=0; jj<VGA_HEIGHT; jj++)
-     {
-       myFile.write(&Imagen[jj*VGA_WIDTH],VGA_WIDTH);
-     }
-    }
-    else if (RESOLUTION == QVGA)
-    {
-     for (int jj=0; jj<QVGA_HEIGHT; jj++)
-     {
-       myFile.write(&Imagen[jj*QVGA_WIDTH],QVGA_WIDTH);
-     }
-    }
-    else if (RESOLUTION == QQVGA)
-    {
-     for (int jj=0; jj<QVGA_HEIGHT; jj++)
-     {
-       myFile.write(&Imagen[jj*QQVGA_WIDTH],QQVGA_WIDTH);
-     }
-    }
-  }
-  else
-  {
-       Serial.println("No se guarda");
-  }
-  
-  myFile.close();
-  NImag++;
-
-
-// String NombreImag = "Imagen";
-//  //int NImag = 5;
-//  NombreImag.concat(NImag);
-//  //temp.concat(".csv");
-//  char NombreImag2[NombreImag.length()+1];
-//  NombreImag.toCharArray(NombreImag2, sizeof(NombreImag2));
-//  
-//  Serial.println(NombreImag2);
-//  myFile = SD.open(NombreImag2 , FILE_WRITE);
-//  Serial.println(myFile);
-//
-//   
-//   if (myFile)
-//   {
-//     for (int jj=0; jj<480; jj++) 
+//void SaveImage()
+//{
+//  String NomImag = "Photo_";
+//  NomImag.concat(NImag);
+//  //NomImag.concat(".jpg");    // Para guardarla como jpg hay que ponerle un header.
+//  char NombreImagen[NomImag.length()+1];
+//  NomImag.toCharArray(NombreImagen, sizeof(NombreImagen));
+//  Serial.println(NombreImagen);
+//  if (SD.exists(NombreImagen)) 
+//  {
+//    Serial.println("Borrando archivo con mismo nombre");
+//    SD.remove(NombreImagen);
+//  }
+//  myFile = SD.open(NombreImagen, FILE_WRITE);
+//  if (myFile)
+//  {
+//    Serial.println("Se guarda");
+//    if (RESOLUTION == VGA)
 //    {
-//      myFile.write(&Imagen[jj*640],640);
+//     for (int jj=0; jj<VGA_HEIGHT; jj++)
+//     {
+//       myFile.write(&Imagen[jj*VGA_WIDTH],VGA_WIDTH);
+//     }
 //    }
-//     myFile.close();
-//   }
-//   NImag++;
-}
+//    else if (RESOLUTION == QVGA)
+//    {
+//     for (int jj=0; jj<QVGA_HEIGHT; jj++)
+//     {
+//       myFile.write(&Imagen[jj*QVGA_WIDTH],QVGA_WIDTH);
+//     }
+//    }
+//    else if (RESOLUTION == QQVGA)
+//    {
+//     for (int jj=0; jj<QVGA_HEIGHT; jj++)
+//     {
+//       myFile.write(&Imagen[jj*QQVGA_WIDTH],QQVGA_WIDTH);
+//     }
+//    }
+//  }
+//  else
+//  {
+//       Serial.println("No se guarda");
+//  }
+//  
+//  myFile.close();
+//  NImag++;
+//}
 
 
 //void saveImage()
@@ -521,37 +433,37 @@ void SaveImage()
 
  
 
-void Automatic_Mode()
-{
-  //double Total_Time = 5*60; // Double, Necesario para que haga bien el redondeo.
-  int Time_Between = 15;
-  //String x = Serial_ReadLine1 (); //Comentado cuando enviamos los datos por puerto serie y no por la interface
-  //int y = x.toInt();
-  //Serial.println(y);
-  float Total_Time = (3)*60;
-  Serial.print("Total Time: ");
-  Serial.println (Total_Time);
-  float Num_Imagenes = Total_Time/Time_Between;
-  Serial.print("Numero de Imagenes: ");
-  Serial.println (Num_Imagenes);
-  //Serial.println (Num_Imagenes);
-  Num_Imagenes = round(Num_Imagenes);
-  Serial.println (Num_Imagenes);
-  for (int ii=0; ii<Num_Imagenes; ii++)
-  {
-    Camera.takeImageYUV(Imagen);
-   SaveImage();
-   delay((Time_Between-3)*1000);
-  }
-  Serial.println("Imagenes tomadas");
-}
+//void Automatic_Mode()
+//{
+//  //double Total_Time = 5*60; // Double, Necesario para que haga bien el redondeo.
+//  int Time_Between = 15;
+//  //String x = Serial_ReadLine1 (); //Comentado cuando enviamos los datos por puerto serie y no por la interface
+//  //int y = x.toInt();
+//  //Serial.println(y);
+//  float Total_Time = (3)*60;
+//  Serial.print("Total Time: ");
+//  Serial.println (Total_Time);
+//  float Num_Imagenes = Total_Time/Time_Between;
+//  Serial.print("Numero de Imagenes: ");
+//  Serial.println (Num_Imagenes);
+//  //Serial.println (Num_Imagenes);
+//  Num_Imagenes = round(Num_Imagenes);
+//  Serial.println (Num_Imagenes);
+//  for (int ii=0; ii<Num_Imagenes; ii++)
+//  {
+//    Camera.takeImageYUV(Imagen);
+//   SaveImage();
+//   delay((Time_Between-3)*1000);
+//  }
+//  Serial.println("Imagenes tomadas");
+//}
 
 
 void AutomaticTask(int id, void * tptr) 
 {
   Serial.println("HOLA");
   Camera.takeImageYUV(Imagen);
-  SaveImage();
+  SD_control.Save(Imagen, RESOLUTION);
   count1++;
 }
 
