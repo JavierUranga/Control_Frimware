@@ -4,6 +4,15 @@
 
 /* **************************************************************
    ***                                                        ***
+   ***                  COMNICATIONS                          ***
+   ***                                                        ***
+   **************************************************************/
+#define	STX					(int)   	0xFAAF
+#define	ETX					(int)   	0xF55F
+#define NOT_CMD(CMD)		(uint8_t) 	(0xFF - (CMD))
+
+/* **************************************************************
+   ***                                                        ***
    ***                  CONFIG COMANDS                        ***
    ***                                                        ***
    **************************************************************/
@@ -84,5 +93,12 @@
 #define QQVGA_WIDTH          (int)    160
 #define QQVGA_LENGTH         (int)    19200
 
+/* **************************************************************
+   ***                                                        ***
+   ***                   MACROS                               ***
+   ***                                                        ***
+   **************************************************************/
+
+#define SERIAL_DEBUG(DebugInfo)  if(SerialDebug) Serial.println((DebugInfo)) // MODIFICAR PARA ENVIAR INFORMACIÓN DEBUG CON OBJETO SERIAL_COMM
 
 #endif
