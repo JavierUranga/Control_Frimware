@@ -14,6 +14,7 @@ int count1 = 0;
 int task1;
 int task2;
 int Time_Interval = 5000;
+bool SerialDebug = true;
 
 double Volt;
 //******************************************************************************************************************
@@ -271,42 +272,7 @@ void Serial_ReadBytes (uint8_t *buffer, int length)
   }
 }
 
-//int Serial_ReadNum ()
-//{
-//  byte buffer[4];
-//  uint8_t character;
-//  int cnt = 0;
-//  int Result = 0;
-//  
-//  while(!Serial.available() ) {}
-//  while(Serial.available() ) 
-//  {
-//      character = Serial.read();  
-//      if ( !((character == '\r') || (character == '\n')) || cnt<4)
-//      {
-//        buffer[cnt] = character;
-//        cnt++;
-//      }
-//  }
-//   memcpy(&Result, buffer, 4);
-//   return Result;
-//}
 
-int Serial_ReadNum ()
-{
-  uint8_t character;
-  int cnt = 0;
-  int Result = 0;
-  
-  while(!Serial.available() ) {}
-  while(Serial.available() ) 
-  {
-       character = Serial.read();
-      //if (!((character == '\r') || (character == '\n'))) character = character;
-  }
-   Serial.println(character);
-   return character;
-}
 
 //void SaveImage()
 //{

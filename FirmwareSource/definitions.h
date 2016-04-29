@@ -7,6 +7,7 @@
    ***                  COMNICATIONS                          ***
    ***                                                        ***
    **************************************************************/
+#define CMD_POSITION		(int)		2
 #define	STX					(int)   	0xFAAF
 #define	ETX					(int)   	0xF55F
 #define NOT_CMD(CMD)		(uint8_t) 	(0xFF - (CMD))
