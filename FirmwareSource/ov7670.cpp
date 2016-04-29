@@ -17,10 +17,36 @@ void ov7670::init()
     pinMode(CLOCK, OUTPUT);
     PWM_20MHZ(CLOCK);
     initialized = true;
+
   }
 }
 
  // print register
+String ov7670::PrintRegister_txt(void) { 
+  String TextInfoCam;
+    char dataString[2] = {0};
+    
+    TextInfoCam = "\n\t\t\t\t\t\t\t--- CAMERA CONFIG INFORMATION ---\n";
+    TextInfoCam = TextInfoCam + "AD\t +0\t +1\t +2\t +3\t +4\t +5\t +6\t +7\t +8\t +9\t +A\t +B\t +C\t +D\t +E\t +F";
+    for (int i=0;i<OV7670_REGMAX;i++)
+    {
+        uint8_t data;
+        sccb_read(i, &data); // READ REG
+        if ((i & 0x0F) == 0) 
+        {
+            TextInfoCam = TextInfoCam + "\r\n";       
+            sprintf(dataString, "%.2X", i);   
+            TextInfoCam = TextInfoCam + dataString;
+            TextInfoCam = TextInfoCam + "\t";
+        }
+        sprintf(dataString, "%.2X",data);
+        TextInfoCam = TextInfoCam + dataString;
+        TextInfoCam = TextInfoCam + "\t";
+    }
+    TextInfoCam = TextInfoCam +  "AD_END\r\n\n";
+    return TextInfoCam;
+}
+
 void ov7670::PrintRegister(void) {   
     char dataString[2] = {0};
 
@@ -42,6 +68,9 @@ void ov7670::PrintRegister(void) {
     }
     serial->print("AD_END\r\n");
 }
+
+
+
 
 void ov7670::setSerial(HardwareSerial *s) {
 	serial = s;

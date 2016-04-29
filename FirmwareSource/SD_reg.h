@@ -6,28 +6,28 @@
 #include "Definitions.h"
 
 #define chipSelect_SD 52 
-
+#define FileName "Img_"
 
 class SD_reg
 {
 public:  
   SD_reg();
-  char* PrintRegisterSD(void);
-  void Save(uint8_t  *Imagen, byte RESOLUTION); //Habría que enviar también el path
-  void CreateFolder (String path);
-  String GetpathFolder (void);
+  String  PrintRegisterSD_txt(void);
+  void    PrintRegisterSD(void);
+  bool    Save(uint8_t  *Imagen, byte RESOLUTION);
+  void    CreateFolder (String path);
+  String  GetpathFolder (void);
+  int     GetImageNumber(void);
+ 
+  
+private:
+  int NumImag;
+  String m_path = "";
   File myFile;
   // set up variables using the SD utility library functions:
   Sd2Card card;
   SdVolume volume;
   SdFile root;
-  
-  private:
-  String FileName = "Img_";
-  byte RESOLUTION;
-  int NumImag = 6;
-  String m_path = "";
-
   
 };
 

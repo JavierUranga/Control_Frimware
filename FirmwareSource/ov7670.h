@@ -19,6 +19,7 @@ class ov7670
 public:  
     ov7670(TwoWire& s);
     void init();
+    String PrintRegister_txt(void); 
     void PrintRegister(void); 
     void setSerial(HardwareSerial *s); 
     void Reset(void);

@@ -2,103 +2,157 @@
 
   SD_reg::SD_reg()
 {
-  pinMode(chipSelect_SD, OUTPUT);
+	pinMode(chipSelect_SD, OUTPUT);
   digitalWrite(chipSelect_SD, HIGH);
   // we'll use the initialization code from the utility libraries
   // since we're just testing if the card is working!
   SD.begin(chipSelect_SD);
+  this->NumImag = 6;
 }
 
-char* SD_reg::PrintRegisterSD(void)
+String SD_reg::PrintRegisterSD_txt()
 {
-	char* TextInfo = new char;
-	strcpy(TextInfo,"--- SD CARD INFORMATION ---\n");
+  String TextInfo;
+  TextInfo = "\n--- SD CARD INFORMATION ---\n";
     if (!card.init(SPI_HALF_SPEED, chipSelect_SD))
-    {
-		strcat(TextInfo,"Initialization failed. Things to check:\n");
-		strcat(TextInfo, "* is a card is inserted?\n");
-		strcat(TextInfo, "* Is your wiring correct?\n");
-		strcat(TextInfo, "* did you change the chipSelect pin to match your shield or module?\n");
-		return TextInfo;
-   	}
-    else
-	{
-    	strcat(TextInfo,"Wiring is correct and a card is present.\n");
-	}
+   {
+    TextInfo = TextInfo + "Initialization failed. Things to check:\n";
+    TextInfo = TextInfo + "* is a card is inserted?\n";
+    TextInfo = TextInfo + "* Is your wiring correct?\n";
+    TextInfo = TextInfo + "* did you change the chipSelect pin to match your shield or module?\n";
+    return TextInfo;
+  } else
+  {
+   TextInfo = TextInfo + "Wiring is correct and a card is present.\n"; 
+  }
 
   // print the type of card
-    strcat(TextInfo,"\nCard type: ");
+  TextInfo = TextInfo + "\nCard type: ";
   switch(card.type()) {
     case SD_CARD_TYPE_SD1:
-    	strcat(TextInfo,"SD1\n");
+      TextInfo = TextInfo + "SD1\n";
       break;
     case SD_CARD_TYPE_SD2:
-    	strcat(TextInfo,"SD2\n");
+      TextInfo = TextInfo + "SD2\n";
       break;
     case SD_CARD_TYPE_SDHC:
-      Sstrcat(TextInfo,"SDHC\n");
+      TextInfo = TextInfo + "SDHC\n";
       break;
     default:
-    	strcat(TextInfo,"Unknown\n");
+      TextInfo = TextInfo + "Unknown\n";
   }
 
   // Now we will try to open the 'volume'/'partition' - it should be FAT16 or FAT32
   if (!volume.init(card)) {
-	  strcat(TextInfo,"Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card\n");
-    return;
+    TextInfo = TextInfo + "Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card\n";
+    return TextInfo;
   }
 
 
   // print the type and size of the first FAT-type volume
   double volumesize;
-  strcat(TextInfo,"\nVolume type is FAT");
-  strcat(TextInfo, sprintf(%d\n\n,volume.fatType()));
+  TextInfo = TextInfo + "\nVolume type is FAT";
+  TextInfo = TextInfo + volume.fatType();
   
   volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
   volumesize *= volume.clusterCount();       // we'll have a lot of clusters
   volumesize *= 512;                            // SD card blocks are always 512 bytes
-  strcat(TextInfo,"Volume size (bytes): ");
-  strcat(TextInfo, sprintf(%d\n,volumesize));
-  strcat(TextInfo,"Volume size (Kbytes): ");
+  //strcat(TextInfo,"\nVolume size (bytes): ");
+  //strcat(TextInfo, dtostrf(volumesize,19,0,buff));
+  TextInfo = TextInfo +"\nVolume size (Kbytes): ";
   volumesize /= 1024;
-  strcat(TextInfo, sprintf(%d\n,volumesize));
-  strcat(TextInfo,"Volume size (Mbytes): ");
-  Serial.print("Volume size (Mbytes): ");
+  TextInfo = TextInfo + volumesize;
+  TextInfo = TextInfo +"\nVolume size (Mbytes): ";
   volumesize /= 1024;
-  strcat(TextInfo, sprintf(%d\n,volumesize));
+  TextInfo = TextInfo + volumesize;
 
   
-  strcat(TextInfo,"\nFiles found on the card (name, date and size in bytes): \n");
+  TextInfo = TextInfo + "\n\nFiles found on the card (name, date and size in bytes): \n";
   root.openRoot(volume);
+  TextInfo = TextInfo + root.ls_txt(LS_R | LS_DATE | LS_SIZE);
   
-  // list all files in the card with date and size
-  root.ls(LS_R | LS_DATE | LS_SIZE);
-  //root.ls(LS_R | LS_SIZE);
- // sum(root.ls(LS_SIZE));
+  return TextInfo;
 }
 
-void SD_reg::Save(uint8_t  *Imagen, byte RESOLUTION)
+void SD_reg::PrintRegisterSD(void)
+ {
+     if (!card.init(SPI_HALF_SPEED, chipSelect_SD))
+    {
+     Serial.println("initialization failed. Things to check:");
+     Serial.println("* is a card is inserted?");
+     Serial.println("* Is your wiring correct?");
+     Serial.println("* did you change the chipSelect pin to match your shield or module?");
+     return;
+   } else
+   {
+    Serial.println("Wiring is correct and a card is present."); 
+   }
+ 
+   // print the type of card
+   Serial.print("\nCard type: ");
+   switch(card.type()) {
+     case SD_CARD_TYPE_SD1:
+       Serial.println("SD1");
+       break;
+     case SD_CARD_TYPE_SD2:
+       Serial.println("SD2");
+       break;
+     case SD_CARD_TYPE_SDHC:
+       Serial.println("SDHC");
+       break;
+     default:
+       Serial.println("Unknown");
+   }
+ 
+   // Now we will try to open the 'volume'/'partition' - it should be FAT16 or FAT32
+   if (!volume.init(card)) {
+     Serial.println("Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card");
+     return;
+   }
+ 
+ 
+   // print the type and size of the first FAT-type volume
+   double volumesize;
+   Serial.print("\nVolume type is FAT");
+   Serial.println(volume.fatType(), DEC);
+   Serial.println();
+   
+   volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
+   volumesize *= volume.clusterCount();       // we'll have a lot of clusters
+   volumesize *= 512;                            // SD card blocks are always 512 bytes
+   Serial.print("Volume size (bytes): ");
+   Serial.println(volumesize);
+   Serial.print("Volume size (Kbytes): ");
+   volumesize /= 1024;
+   Serial.println(volumesize);
+   Serial.print("Volume size (Mbytes): ");
+   volumesize /= 1024;
+   Serial.println(volumesize);
+ 
+   
+   Serial.println("\nFiles found on the card (name, date and size in bytes): ");
+   root.openRoot(volume);
+   
+  // list all files in the card with date and size
+   root.ls(LS_R | LS_DATE | LS_SIZE);
+
+ }
+
+bool SD_reg::Save(uint8_t  *Imagen, byte RESOLUTION)
 {
+  bool Save_OK = false;
   String ini_path = "";
-  ini_path = this->m_path + this->FileName + this->NumImag;
-//  ini_path = this->m_path;
-//  ini_path.concat(this->FileName);
-//  Serial.println(ini_path);
-//  ini_path.concat(this->NumImag);
-  Serial.println(ini_path);
-  //NomImag.concat(".jpg");    // Para guardarla como jpg hay que ponerle un header.
+  ini_path = this->m_path + FileName + this->NumImag;
   char NombreImagen[ini_path.length()+1];
   ini_path.toCharArray(NombreImagen, sizeof(NombreImagen));
-  Serial.println(NombreImagen);
   if (SD.exists(NombreImagen)) 
   {
-    Serial.println("Borrando archivo con mismo nombre");
     SD.remove(NombreImagen);
   }
   myFile = SD.open(NombreImagen, FILE_WRITE);
   if (myFile)
   {
-    Serial.println("Se guarda");
+    Save_OK = true;
     if (RESOLUTION == VGA)
     {
      for (int jj=0; jj<VGA_HEIGHT; jj++)
@@ -115,7 +169,7 @@ void SD_reg::Save(uint8_t  *Imagen, byte RESOLUTION)
     }
     else if (RESOLUTION == QQVGA)
     {
-     for (int jj=0; jj<QVGA_HEIGHT; jj++)
+     for (int jj=0; jj<QQVGA_HEIGHT; jj++)
      {
        myFile.write(&Imagen[jj*QQVGA_WIDTH],QQVGA_WIDTH);
      }
@@ -124,10 +178,11 @@ void SD_reg::Save(uint8_t  *Imagen, byte RESOLUTION)
   }
   else
   {
-       Serial.println("No se guarda");
+       Save_OK = false;
   }
   
   myFile.close();
+  return Save_OK;
 }
 
 void SD_reg::CreateFolder(String path)
@@ -149,5 +204,11 @@ String SD_reg::GetpathFolder(void)
   else 
   return "Directorio Principal";
 }
+
+int SD_reg::GetImageNumber(void)
+{
+  return this->NumImag;
+}
+
 
 

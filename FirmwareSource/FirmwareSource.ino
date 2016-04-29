@@ -5,12 +5,17 @@
 #include "SD_reg.h"
 #include <Wire.h>
 
+// MACROS
+#define SERIAL_PRINT(TEXT) Serial.print((TEXT))
+
+
 ///////////////////////////////////////////////////////////////////////
 int count1 = 0;
 int task1;
-int Time_Interval = 4000;
+int task2;
+int Time_Interval = 5000;
 
-
+double Volt;
 //******************************************************************************************************************
 //                            I2C-EEPROM SETTINGS
 //******************************************************************************************************************
@@ -21,8 +26,8 @@ TwoWire I2C;
 //******************************************************************************************************************
 // Camera Config
 ov7670  Camera(I2C);
-pwm_LED	LED_control();
-SD_reg  SD_control();  // Quitar los (), probablemente en el pwm_Led haya que hacer los mismo.
+pwm_LED	LED_control;
+SD_reg  SD_control;  // Quitar los (), probablemente en el pwm_Led haya que hacer los mismo.
 
 #define TRIG  46   //Photo button
 
@@ -37,7 +42,6 @@ void setup(){
   
    // Start serial for output
   Serial.begin(250000);
-  Serial.println("Empieza Setup");
   Imagen=(uint8_t *)malloc(VGA_LENGTH*sizeof(uint8_t));
   RESOLUTION = VGA;
 
@@ -45,7 +49,8 @@ void setup(){
   pinMode(TRIG, INPUT);
   pinMode(TRIG2, INPUT);
   
-  //Dimming LED
+  //Voltage Monitor
+  pinMode(49, INPUT);
  
    
   // PIN configuration
@@ -54,12 +59,13 @@ void setup(){
   
   //I2C 
   I2C.begin(); 
-  
+
+  //CAMERA
   Camera.init();
   Camera.setSerial(&Serial);
   
   Serial.println("CAMERA CONFIG PRE");
-  Camera.PrintRegister();
+  Serial.print(Camera.PrintRegister_txt());
  
   //Camera.Reset();
    
@@ -75,15 +81,21 @@ void setup(){
                   
           
   Serial.println("CAMERA CONFIG POST");
-  Camera.PrintRegister();
+  Serial.print(Camera.PrintRegister_txt());
+  
+  // LED
+  pwm_LED  LED_control;
+  
 
-
-  Serial.print(SD_control.PrintRegisterSD());
+// SD
+  SD_reg  SD_control; 
+  Serial.print(SD_control.PrintRegisterSD_txt());
+  task1 = createTask(VoltageMonitor, 3000, TASK_ENABLE, NULL);
+  task2 = createTask(AutomaticTask, Time_Interval, TASK_DISABLE, NULL);
 }
 
 
-void loop (){
-  
+void loop (){ 
   String DataRead = "";
 
   if(digitalRead(TRIG)==HIGH)
@@ -107,7 +119,8 @@ void loop (){
     else if (DataRead == "<READ_CAMERA_CONFIG>")
    {
      Serial.println("<READ_CAMERA_CONFIG><ACK>");
-     Camera.PrintRegister();      
+     Serial.print(Camera.PrintRegister_txt()); 
+     Serial.println("Acaba");     
    }
    //Guardar SD
    else if (DataRead == "<SAVE_IMAGE_SD>")
@@ -118,14 +131,9 @@ void loop (){
    }
    else if (DataRead == "<AUTOMATIC_MODE>")
    {
-    destroyTask(task1);
-    //destroyTask(task2);
+    destroyTask(task2);
     count1 = 0;
-    task1 = createTask(AutomaticTask, Time_Interval, TASK_ENABLE, NULL);
-
-    //task2 = createTask(AutomaticTask1, 300, 20, NULL);
-
-    //task1 = createTask(AutomaticTask, Time_Interval, TASK_ENABLE, NULL);
+    task2 = createTask(AutomaticTask, Time_Interval, TASK_ENABLE, NULL);
 
     //Automatic_Mode();
    }
@@ -161,7 +169,7 @@ void loop (){
 
    else if (DataRead == "P_GET_SD_IFO")
    {
-    SD_control.PrintRegisterSD();
+    Serial.print(SD_control.PrintRegisterSD_txt());
    }
    
    else if (DataRead == "CreateFolder")
@@ -177,13 +185,19 @@ void loop (){
     Serial.print("Path: ");
     Serial.println(pathfolder);
    }
+   else if (DataRead == "Antiguo")
+   {
+    Camera.PrintRegister();
+    SD_control.PrintRegisterSD();
+   }
 
    delay(50);
 
    if (count1 >= 30)
    {
-    destroyTask(task1);
+    destroyTask(task2);
    }
+   
 
 
    
@@ -200,11 +214,11 @@ void loop (){
  void Image_RAM_to_Serial()
 {
  //VGA
- if (RESOLUTION == VGA)         { Serial.write(&Imagen[0], 307200); } 
+ if (RESOLUTION == VGA)         { Serial.write(&Imagen[0], VGA_LENGTH); } 
  //QVGA
- else if (RESOLUTION == QVGA)   { Serial.write(&Imagen[0], 76800); }
+ else if (RESOLUTION == QVGA)   { Serial.write(&Imagen[0], QVGA_LENGTH); }
  //QQVGA
- else if (RESOLUTION == QQVGA)  { Serial.write(&Imagen[0], 19200); }
+ else if (RESOLUTION == QQVGA)  { Serial.write(&Imagen[0], QQVGA_LENGTH); }
 }
 
  String Serial_ReadLine ()
@@ -441,6 +455,7 @@ int Serial_ReadNum ()
 //  //int y = x.toInt();
 //  //Serial.println(y);
 //  float Total_Time = (3)*60;
+
 //  Serial.print("Total Time: ");
 //  Serial.println (Total_Time);
 //  float Num_Imagenes = Total_Time/Time_Between;
@@ -463,13 +478,18 @@ void AutomaticTask(int id, void * tptr)
 {
   Serial.println("HOLA");
   Camera.takeImageYUV(Imagen);
-  SD_control.Save(Imagen, RESOLUTION);
+  bool Save_OK = SD_control.Save(Imagen, RESOLUTION);
   count1++;
 }
 
-void AutomaticTask1(int id, void * tptr) 
+void VoltageMonitor(int id, void * tptr) 
 {
-  Serial.println("Automatic");
+    Volt = analogRead(49);
+    Volt= Volt/110;
+    if (Volt <4)
+    {
+    Serial.println("Charge Battery");
+    }
 }
 
 
